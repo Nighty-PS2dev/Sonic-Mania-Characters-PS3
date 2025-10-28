@@ -1,0 +1,3 @@
+All mods go in /dev_hdd0/game/SMAP02024/USRDIR/mods/
+
+"All mod files/folders must be lowercase."
