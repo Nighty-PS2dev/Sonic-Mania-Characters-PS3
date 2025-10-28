@@ -603,6 +603,14 @@ void Player_Create(void *data)
                 self->stateAbility = Player_JumpAbility_Ray;
                 self->sensorY      = TO_FIXED(20);
                 break;
+
+            case ID_SILVER:
+                self->aniFrames    = Player->silverFrames;
+                self->tailFrames   = -1;
+                self->jumpOffset   = TO_FIXED(5);
+                self->stateAbility = Player_JumpAbility_Silver;
+                self->sensorY      = TO_FIXED(20);
+                break;
 #endif
         }
 
@@ -804,6 +812,7 @@ void Player_LoadSprites(void)
 #if MANIA_USE_PLUS
                 case ID_MIGHTY: Player->mightyFrames = RSDK.LoadSpriteAnimation("Players/Mighty.bin", SCOPE_STAGE); break;
                 case ID_RAY: Player->rayFrames = RSDK.LoadSpriteAnimation("Players/Ray.bin", SCOPE_STAGE); break;
+                case ID_SILVER: Player->silverFrames = RSDK.LoadSpriteAnimation("Players/Silver.bin", SCOPE_STAGE); break;
 #endif
             }
 
@@ -883,6 +892,7 @@ void Player_LoadSpritesVS(void)
 #if MANIA_USE_PLUS
                     case ID_MIGHTY: Player->mightyFrames = RSDK.LoadSpriteAnimation("Players/Mighty.bin", SCOPE_STAGE); break;
                     case ID_RAY: Player->rayFrames = RSDK.LoadSpriteAnimation("Players/Ray.bin", SCOPE_STAGE); break;
+                    case ID_SILVER: Player->silverFrames = RSDK.LoadSpriteAnimation("Players/Silver.bin", SCOPE_STAGE); break;
 #endif
                 }
 
@@ -1085,6 +1095,25 @@ void Player_ChangeCharacter(EntityPlayer *entity, int32 character)
             entity->stateAbility = Player_JumpAbility_Ray;
             entity->sensorY      = TO_FIXED(20);
             break;
+
+        case ID_SILVER:
+            Player->silverFrames = RSDK.LoadSpriteAnimation("Players/Silver.bin", SCOPE_STAGE);
+            if (SizeLaser)
+                SizeLaser->silverFrames = RSDK.LoadSpriteAnimation("Players/ChibiSilver.bin", SCOPE_STAGE);
+
+            if (entity->isChibi) {
+                entity->aniFrames  = SizeLaser->silverFrames;
+                entity->jumpOffset = TO_FIXED(4);
+            }
+            else {
+                entity->aniFrames  = Player->silverFrames;
+                entity->jumpOffset = TO_FIXED(5);
+            }
+
+            entity->tailFrames   = -1;
+            entity->stateAbility = Player_JumpAbility_Silver;
+            entity->sensorY      = TO_FIXED(20);
+            break;
 #endif
     }
 
@@ -1234,6 +1263,13 @@ bool32 Player_TryTransform(EntityPlayer *player, uint8 emeraldMasks)
             for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
                 RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_RAY + c, Player->superPalette_Ray[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
                 RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_RAY + c, Player->superPalette_Ray[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+            }
+            break;
+
+        case ID_SILVER:
+            for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
+                RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
             }
             break;
 #endif
@@ -1482,6 +1518,40 @@ void Player_BlendSuperRayColors(int32 bankID)
     // add "- 1" to endIndex calculations to fix ray's super palette messing up a colour
     RSDK.SetLimitedFade(bankID, 6, 7, self->superBlendAmount, PLAYER_PALETTE_INDEX_RAY, (PLAYER_PALETTE_INDEX_RAY + PLAYER_PRIMARY_COLOR_COUNT));
 }
+void Player_BlendSuperSilverColors(int32 bankID)
+{
+    RSDK_THIS(Player);
+
+    switch (self->superState) {
+        case SUPERSTATE_NONE:
+        case SUPERSTATE_FADEIN:
+        case SUPERSTATE_FADEOUT:
+        case SUPERSTATE_DONE:
+        default:
+            if (self->superBlendAmount <= 0)
+                self->superState = SUPERSTATE_NONE;
+            else
+                self->superBlendAmount -= 4;
+            break;
+
+        case SUPERSTATE_SUPER:
+            if (self->superBlendState) {
+                if (self->superBlendAmount <= 0)
+                    self->superBlendState = 0;
+                else
+                    self->superBlendAmount -= 4;
+            }
+            else {
+                if (self->superBlendAmount >= 256)
+                    self->superBlendState = 1;
+                else
+                    self->superBlendAmount += 4;
+            }
+            break;
+    }
+
+    RSDK.SetLimitedFade(bankID, 6, 7, self->superBlendAmount, PLAYER_PALETTE_INDEX_SILVER, (PLAYER_PALETTE_INDEX_SILVER + PLAYER_PRIMARY_COLOR_COUNT));
+}
 #endif
 void Player_HandleSuperForm(void)
 {
@@ -1679,6 +1749,11 @@ void Player_HandleSuperForm(void)
 
                 if (FarPlane) {
                     RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_RAY, 3, PLAYER_PALETTE_INDEX_RAY, PLAYER_PRIMARY_COLOR_COUNT);
+            case ID_SILVER:
+                Player_BlendSuperSilverColors(0);
+
+                if (FarPlane) {
+                    RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_SILVER, 3, PLAYER_PALETTE_INDEX_SILVER, PLAYER_PRIMARY_COLOR_COUNT);
                 }
                 else if (OOZSetup) {
                     RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_RAY, 1, PLAYER_PALETTE_INDEX_RAY, PLAYER_PRIMARY_COLOR_COUNT);
@@ -1708,6 +1783,43 @@ void Player_HandleSuperForm(void)
                     for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
                         RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_RAY + c, Player->superPalette_Ray[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
                         RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_RAY + c, Player->superPalette_Ray[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                    }
+                }
+                break;
+            case ID_SILVER:
+                Player_BlendSuperSilverColors(0);
+
+                if (FarPlane) {
+                    RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_SILVER, 3, PLAYER_PALETTE_INDEX_SILVER, PLAYER_PRIMARY_COLOR_COUNT);
+                }
+                else if (OOZSetup) {
+                    RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_SILVER, 1, PLAYER_PALETTE_INDEX_SILVER, PLAYER_PRIMARY_COLOR_COUNT);
+                    RSDK.CopyPalette(0, PLAYER_PALETTE_INDEX_SILVER, 2, PLAYER_PALETTE_INDEX_SILVER, PLAYER_PRIMARY_COLOR_COUNT);
+                }
+                else if (HCZSetup) {
+                    for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
+                        RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver_HCZ[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                        RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver_HCZ[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                    }
+
+                    Player_BlendSuperSilverColors(1);
+
+                    for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
+                        RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                        RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                    }
+                }
+                else if (CPZSetup) {
+                    for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
+                        RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver_CPZ[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                        RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver_CPZ[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                    }
+
+                    Player_BlendSuperSilverColors(2);
+
+                    for (int32 c = 0; c < PLAYER_PRIMARY_COLOR_COUNT; ++c) {
+                        RSDK.SetPaletteEntry(6, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(0 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
+                        RSDK.SetPaletteEntry(7, PLAYER_PALETTE_INDEX_SILVER + c, Player->superPalette_Silver[(2 * PLAYER_PRIMARY_COLOR_COUNT) + c]);
                     }
                 }
                 break;
@@ -2755,6 +2867,7 @@ void Player_UpdatePhysicsState(EntityPlayer *entity)
 #if MANIA_USE_PLUS
         case ID_MIGHTY: tablePtr = Player->mightyPhysicsTable; break;
         case ID_RAY: tablePtr = Player->rayPhysicsTable; break;
+        case ID_SILVER: tablePtr = Player->silverPhysicsTable; break;
 #endif
     }
 
@@ -6377,6 +6490,18 @@ void Player_SfxUpdate_RayDive(int32 sfxID)
 void Player_SfxUpdate_RaySwoop(int32 sfxID)
 {
     RSDK.SetChannelAttributes(Soundboard->sfxChannel[sfxID], (Player->raySwoopTimer * 0.8f) * (1.0f / 256.0f), 0.0, 1.0);
+}
+
+void Player_JumpAbility_Silver(void)
+{
+    RSDK_THIS(Player);
+    if (self->jumpPress && self->jumpAbilityState == 1
+        && (self->stateInput != Player_Input_P2_AI || (self->up && globals->gameMode != MODE_ENCORE))) {
+        if (!self->invertGravity) {
+        }
+    }
+    else if (ControllerInfo[self->controllerID].keyY.press)
+        Player_TryTransform(self, SaveGame_GetSaveRAM()->collectedEmeralds);
 }
 #endif
 
